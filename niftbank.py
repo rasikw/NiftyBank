@@ -23,7 +23,7 @@ symbols = df['Symbol'].unique()
 selected_symbol = st.sidebar.selectbox("Choose a stock symbol", symbols)
 
 # 📊 Filter selected stock
-st_data = df[df['Symbol'] == selected_symbol][['Close']].copy()
+st_data = df[df['Symbol'] == selected_symbol][['Open', 'High', 'Low', 'Close']].copy()
 st_data['Return'] = st_data['Close'].pct_change()
 st_data.dropna(inplace=True)
 
@@ -54,23 +54,43 @@ forecast_dates = pd.date_range(start=st_data.index[-1], periods=11, freq='B')[1:
 # 📈 Plot with Plotly
 fig = go.Figure()
 
+# Actual prices with OHLC hover
 fig.add_trace(go.Scatter(
     x=st_data.index,
     y=st_data['Close'],
     mode='lines',
-    name='Actual Prices',
-    line=dict(color='blue')
+    name='Actual Close',
+    line=dict(color='blue'),
+    customdata=st_data[['Open', 'High', 'Low']].values,
+    hovertemplate=(
+        "<b>Date:</b> %{x}<br>" +
+        "<b>Open:</b> %{customdata[0]:.2f}<br>" +
+        "<b>High:</b> %{customdata[1]:.2f}<br>" +
+        "<b>Low:</b> %{customdata[2]:.2f}<br>" +
+        "<b>Close:</b> %{y:.2f}"
+    )
 ))
+
+# Forecasted prices with hover
+forecast_df = pd.DataFrame({
+    "Date": forecast_dates,
+    "Forecasted Close": forecast
+})
 
 fig.add_trace(go.Scatter(
-    x=forecast_dates,
-    y=forecast,
+    x=forecast_df['Date'],
+    y=forecast_df['Forecasted Close'],
     mode='lines+markers',
-    name='Forecasted Prices',
+    name='Forecasted Close',
     line=dict(color='red', dash='dash'),
-    marker=dict(size=6, symbol='circle')
+    marker=dict(size=6, symbol='circle'),
+    hovertemplate=(
+        "<b>Date:</b> %{x}<br>" +
+        "<b>Forecasted Close:</b> %{y:.2f}"
+    )
 ))
 
+# Vertical line to separate actual and forecast
 fig.add_shape(
     type="line",
     x0=forecast_dates[0],
@@ -80,7 +100,7 @@ fig.add_shape(
     line=dict(color="gray", width=1, dash="dot")
 )
 
-fig.update_traces(hovertemplate='Date: %{x}<br>Price: %{y:.2f} INR')
+# Layout settings
 fig.update_layout(
     title=f"{selected_symbol} Stock Price Forecast",
     xaxis_title="Date",
@@ -97,9 +117,5 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # 📋 Forecast Table
-forecast_df = pd.DataFrame({
-    "Date": forecast_dates,
-    "Forecasted Price": forecast
-})
 st.subheader("📋 Forecasted Prices")
-st.dataframe(forecast_df.style.format({"Forecasted Price": "{:.2f}"}))
+st.dataframe(forecast_df.style.format({"Forecasted Close": "{:.2f}"}))
